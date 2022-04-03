@@ -7,8 +7,9 @@ from sklearn.linear_model import LogisticRegression
 
 # multi label
 class classify(object):
-    def __init__(self, config, data_feature, vectors):
+    def __init__(self, config, data_feature, vectors, logger):
         self.config = config
+        self.logger = logger
         self.data_feature = data_feature
         self.embeddings = vectors
         self.clf = TopKRanker(LogisticRegression())
@@ -32,7 +33,7 @@ class classify(object):
         results = {}
         for average in averages:
             results[average] = f1_score(Y, Y_, average=average)
-        print(results)
+        self.logger.info(results)
         return results
 
     def predict(self, X, top_k_list):

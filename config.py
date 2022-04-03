@@ -18,6 +18,9 @@ class Config(object):
         self._parse_config_file()
         self._parse_external_config()
 
+    def __getitem__(self, name):
+        return self.config.get(name, None)
+
     def get(self, name, default=None):
         return self.config.get(name, default)
 

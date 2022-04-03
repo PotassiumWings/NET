@@ -1,15 +1,17 @@
 import logging
 import random
 from argparse import ArgumentParser
+import sys
 
 import numpy
 
+import os
 from data import data
 from downstream import classify
 from model import node2vec
 from config import Config
 from logging import getLogger
-from utils import get_downstream, load_embeddings
+from utils import get_downstream, load_embeddings, ensure_dir, get_local_time
 
 
 def parse_args():
@@ -36,22 +38,39 @@ def parse_args():
 
 
 def run_model(config):
-    logging.basicConfig(level=logging.INFO)
     logger = getLogger()
+    logger.setLevel(logging.INFO)
+
+    log_dir = './output/log'
+    ensure_dir(log_dir)
+    log_filename = '{}-{}-{}-{}.log'.format(config['exp_id'],
+                                            config['model'], config['dataset'], get_local_time())
+    log_file_name = os.path.join(log_dir, log_filename)
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler = logging.FileHandler(log_file_name)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+
     logger.info("Begin pipeline, method={}, dataset={}, downstream={}, exp_id={}"
-                .format(config.get("method"), config.get("dataset"),
-                        config.get("downstream"), config.get("exp_id")))
+                .format(config["method"], config["dataset"],
+                        config["downstream"], config["exp_id"]))
     logger.info(config.config)
     logger.info("Start reading dataset...")
-    dataset = data(config)
+    dataset = data(config, logger)
     logger.info("Dataset read.")
 
-    cached_embedding = config.get("cached_embedding", None)
+    cached_embedding = config["cached_embedding"]
     if cached_embedding is not None:
         vectors = load_embeddings(cached_embedding)
     else:
         logger.info("Start building method...")
-        m = node2vec.node2vec(dataset.G, config)
+        m = node2vec.node2vec(dataset.G, config, logger)
         logger.info("Model built.")
 
         logger.info("Saving embeddings...")
@@ -64,7 +83,7 @@ def run_model(config):
     data_feature = dataset.get_data_feature()
     logger.info("Finished getting data.")
 
-    downstream = get_downstream(config, data_feature, vectors)
+    downstream = get_downstream(config, data_feature, vectors, logger)
 
     logger.info("Start training downstream task...")
     downstream.train(train_data, valid_data)

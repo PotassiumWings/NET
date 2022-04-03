@@ -1,5 +1,6 @@
 import os
 import importlib
+import datetime
 
 
 def ensure_dir(dir_path):
@@ -7,10 +8,10 @@ def ensure_dir(dir_path):
         os.makedirs(dir_path)
 
 
-def get_downstream(config, data_feature, vectors):
+def get_downstream(config, data_feature, vectors, logger):
     try:
-        return getattr(importlib.import_module('downstream'), config.get("downstream"))\
-            (config, data_feature, vectors)
+        return getattr(importlib.import_module('downstream'), config["downstream"])\
+            (config, data_feature, vectors, logger)
     except AttributeError:
         raise AttributeError("method is not found")
 
@@ -30,3 +31,14 @@ def load_embeddings(filename):
     assert len(vectors) == node_num
     return vectors
 
+
+def get_local_time():
+    """
+    获取时间
+
+    Return:
+        datetime: 时间
+    """
+    cur = datetime.datetime.now()
+    cur = cur.strftime('%b-%d-%Y_%H-%M-%S')
+    return cur

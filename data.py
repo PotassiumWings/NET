@@ -1,5 +1,4 @@
 import networkx as nx
-from logging import getLogger
 import pandas as pd
 import numpy as np
 import scipy.sparse as sp
@@ -9,7 +8,7 @@ from utils import ensure_dir
 
 
 class data(object):
-    def __init__(self, config):
+    def __init__(self, config, logger):
         self.G = None
         self.node_size = 0
         self.config = config
@@ -29,7 +28,7 @@ class data(object):
                                             'road_rep_{}.npz'.format(self.parameters_str))
 
         # files
-        self.logger = getLogger()
+        self.logger = logger
         self.geo_file = self.config.get('info').get('geo_file')
         self.rel_file = self.config.get('info').get('rel_file')
         self.feature_dim = 0

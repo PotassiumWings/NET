@@ -1,4 +1,3 @@
-from __future__ import print_function
 import random
 import numpy as np
 
@@ -8,9 +7,10 @@ def deepwalk_walk_wrapper(class_instance, walk_length, start_node):
 
 
 class BasicWalker:
-    def __init__(self, G, workers):
+    def __init__(self, G, logger):
         self.G = G.G
         self.node_size = G.node_size
+        self.logger = logger
 
     def deepwalk_walk(self, walk_length, start_node):
         """
@@ -36,9 +36,9 @@ class BasicWalker:
         G = self.G
         walks = []
         nodes = list(G.nodes())
-        print('Walk iteration:')
+        self.logger.info('Walk iteration:')
         for walk_iter in range(num_walks):
-            print(str(walk_iter+1), '/', str(num_walks))
+            self.logger.info(str(walk_iter+1), '/', str(num_walks))
             random.shuffle(nodes)
             for node in nodes:
                 walks.append(self.deepwalk_walk(
@@ -47,11 +47,12 @@ class BasicWalker:
 
 
 class Walker:
-    def __init__(self, G, p, q):
+    def __init__(self, G, p, q, logger):
         self.G = G
         self.p = p
         self.q = q
         self.node_size = len(G)
+        self.logger = logger
 
     def node2vec_walk(self, walk_length, start_node):
         """
@@ -88,9 +89,9 @@ class Walker:
         G = self.G
         walks = []
         nodes = list(G.nodes())
-        print('Walk iteration:')
+        self.logger.info('Walk iteration:')
         for walk_iter in range(num_walks):
-            print(str(walk_iter+1), '/', str(num_walks))
+            self.logger.info(str(walk_iter+1) + '/' + str(num_walks))
             random.shuffle(nodes)
             for node in nodes:
                 walks.append(self.node2vec_walk(

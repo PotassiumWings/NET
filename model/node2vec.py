@@ -4,12 +4,13 @@ from model.AbstractModel import AbstractModel
 
 
 class node2vec(AbstractModel):
-    def __init__(self, g, config, kwargs=None):
+    def __init__(self, g, config, logger, kwargs=None):
         super().__init__(config)
         if kwargs is None:
             kwargs = {}
         self.config = config
-        self.walker = walker.Walker(g, p=config.get("p", 1.0), q=config.get("q", 1.0))
+        self.logger = logger
+        self.walker = walker.Walker(g, p=config.get("p", 1.0), q=config.get("q", 1.0), logger=self.logger)
         self.walker.preprocess_transition_probs()
 
         self.size = config.get("size", 128)

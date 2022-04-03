@@ -11,7 +11,6 @@ class BasicWalker:
     def __init__(self, G, workers):
         self.G = G.G
         self.node_size = G.node_size
-        self.look_up_dict = G.look_up_dict
 
     def deepwalk_walk(self, walk_length, start_node):
         """
@@ -49,11 +48,10 @@ class BasicWalker:
 
 class Walker:
     def __init__(self, G, p, q):
-        self.G = G.G
+        self.G = G
         self.p = p
         self.q = q
-        self.node_size = G.node_size
-        self.look_up_dict = G.look_up_dict
+        self.node_size = len(G)
 
     def node2vec_walk(self, walk_length, start_node):
         """

@@ -11,7 +11,7 @@ from downstream import classify
 from model import node2vec
 from config import Config
 from logging import getLogger
-from utils import get_downstream, load_embeddings, ensure_dir, get_local_time
+from utils import get_downstream, load_embeddings, ensure_dir, get_local_time, get_model
 
 
 def parse_args():
@@ -21,6 +21,7 @@ def parse_args():
                             'wiki', 'blogCatalog', 'bj_roadmap_edge'
                         ])
     parser.add_argument('--config_file', required=False, help='Config file', default=None)
+    parser.add_argument('--output_dim', required=False, help='Output dim', default=None)
     parser.add_argument('--method', required=True, help='The learning method',
                         choices=[
                             'node2vec',
@@ -70,7 +71,7 @@ def run_model(config):
         vectors = load_embeddings(cached_embedding)
     else:
         logger.info("Start building method...")
-        m = node2vec.node2vec(dataset.G, config, logger)
+        m = get_model(config, dataset.G, logger)
         logger.info("Model built.")
 
         logger.info("Saving embeddings...")

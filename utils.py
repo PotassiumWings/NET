@@ -9,11 +9,13 @@ def ensure_dir(dir_path):
 
 
 def get_downstream(config, data_feature, vectors, logger):
-    try:
-        return getattr(importlib.import_module('downstream'), config["downstream"])\
-            (config, data_feature, vectors, logger)
-    except AttributeError:
-        raise AttributeError("method is not found")
+    return getattr(importlib.import_module('downstream'), config["downstream"]) \
+        (config, data_feature, vectors, logger)
+
+
+def get_model(config, g, logger):
+    return getattr(importlib.import_module('model'), config["method"]) \
+        (config, g, logger)
 
 
 def load_embeddings(filename):

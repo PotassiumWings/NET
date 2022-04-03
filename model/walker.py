@@ -8,8 +8,8 @@ def deepwalk_walk_wrapper(class_instance, walk_length, start_node):
 
 class BasicWalker:
     def __init__(self, G, logger):
-        self.G = G.G
-        self.node_size = G.node_size
+        self.G = G
+        self.node_size = len(G)
         self.logger = logger
 
     def deepwalk_walk(self, walk_length, start_node):
@@ -17,7 +17,6 @@ class BasicWalker:
         Simulate a random walk starting from start node.
         """
         G = self.G
-
         walk = [start_node]
 
         while len(walk) < walk_length:
@@ -38,7 +37,7 @@ class BasicWalker:
         nodes = list(G.nodes())
         self.logger.info('Walk iteration:')
         for walk_iter in range(num_walks):
-            self.logger.info(str(walk_iter+1), '/', str(num_walks))
+            self.logger.info(str(walk_iter+1) + '/' + str(num_walks))
             random.shuffle(nodes)
             for node in nodes:
                 walks.append(self.deepwalk_walk(

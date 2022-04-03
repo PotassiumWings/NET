@@ -14,9 +14,9 @@ class Config(object):
         if exp_id is None:
             exp_id = config["exp_id"] = int(random.SystemRandom().random() * 100000)
 
-        self._parse_default_config()
-        self._parse_config_file()
         self._parse_external_config()
+        self._parse_config_file()
+        self._parse_default_config()
 
     def __getitem__(self, name):
         return self.config.get(name, None)
@@ -28,18 +28,11 @@ class Config(object):
         with open(file_name, 'r') as f:
             json_obj = json.load(f)
             for key in json_obj:
-                self.config[key] = json_obj[key]
+                if json_obj[key] is not None and (key not in self.config or self.config[key] is None):
+                    self.config[key] = json_obj[key]
 
-    def _parse_default_config(self):
-        """
-        parse default config from
-            config/downstream/{downstream},
-            config/method/{method},
-            and dataset/{dataset}/config.json.
-        """
-        self._parse_file_into_config("config/downstream/{}.json".format(self.downstream))
-        self._parse_file_into_config("config/method/{}.json".format(self.method))
-        self._parse_file_into_config("dataset/{}/config.json".format(self.dataset))
+    def _parse_external_config(self):
+        pass
 
     def _parse_config_file(self):
         """
@@ -55,5 +48,14 @@ class Config(object):
                     the config file is in the root dir and is a JSON \
                     file.'.format(config_file))
 
-    def _parse_external_config(self):
-        pass
+    def _parse_default_config(self):
+        """
+        parse default config from
+            config/downstream/{downstream},
+            config/method/{method},
+            and dataset/{dataset}/config.json.
+        """
+        self._parse_file_into_config("config/downstream/{}.json".format(self.downstream))
+        self._parse_file_into_config("config/method/{}.json".format(self.method))
+        self._parse_file_into_config("dataset/{}/config.json".format(self.dataset))
+

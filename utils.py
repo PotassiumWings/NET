@@ -28,10 +28,16 @@ def load_embeddings(filename):
             break
         vec = l.strip().split(' ')
         assert len(vec) == size + 1
-        vectors[int(vec[0])] = [float(x) for x in vec[1:]]
+        vectors[int(vec[0])] = [get_float(x) for x in vec[1:]]
     fin.close()
     assert len(vectors) == node_num
     return vectors
+
+
+def get_float(x):
+    if x.startswith("tensor(") and x.endswith(")"):
+        x = x[7: -2]
+    return float(x)
 
 
 def get_local_time():

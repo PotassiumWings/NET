@@ -17,8 +17,9 @@ class classify(object):
 
     def train(self, train_dataloader, eval_dataloader):
         X = train_dataloader["mask"]
-        Y = train_dataloader['node_labels'][X]
-        self.binarizer.fit(Y)
+        Y_all = train_dataloader['node_labels']
+        Y = Y_all[X]
+        self.binarizer.fit(Y_all)
         X_train = [self.embeddings[x] for x in X]
         Y = self.binarizer.transform(Y)
         self.clf.fit(X_train, Y)

@@ -18,6 +18,8 @@ class HRNR(AbstractModel, nn.Module):
     def __init__(self, config, dataset, logger, kwargs=None):
         super().__init__(config, dataset, logger, kwargs)
         nn.Module.__init__(self)
+        self.output_dim = config['hidden_dims']
+
         self.device = config.get("device", torch.device("cpu"))
         self.special_spmm = SpecialSpmm()
 
@@ -64,7 +66,7 @@ class HRNR(AbstractModel, nn.Module):
         eval_mask = eval_dataloader['mask']
         eval_iter = 0
 
-        for i in range(hparams.label_epoch):
+        for i in range(1):
             self.logger.info("epoch " + str(i) + ", processed " + str(count))
             mask = train_dataloader['mask']
             for step in range(0, len(train_dataloader['mask']) - 128, 128):
@@ -77,7 +79,7 @@ class HRNR(AbstractModel, nn.Module):
                 loss.backward(retain_graph=True)
                 torch.nn.utils.clip_grad_norm_(self.parameters(), hparams.lp_clip)
                 model_optimizer.step()
-                if count % 20 == 0:
+                if count % 20 == 10:
                     eval_data = []
                     for j in range(0, 128):
                         eval_data.append(eval_mask[(eval_iter + j) % len(eval_mask)])
@@ -89,6 +91,7 @@ class HRNR(AbstractModel, nn.Module):
                     self.logger.info("max_f1: " + str(max_f1))
                     self.logger.info("step " + str(count))
                     self.logger.info(loss.item())
+                    break
                 count += 1
 
     def test_label_pred(self, data_feature, mask, device):

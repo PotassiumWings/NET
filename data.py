@@ -161,9 +161,9 @@ class data(object):
         """
         # 数据归一化
         self.feature_dim = self.node_features.shape[-1]
-        train_dataloader = {'mask': self.train_mask}
-        eval_dataloader = {'mask': self.valid_mask}
-        test_dataloader = {'mask': self.test_mask}
+        train_dataloader = {'mask': self.train_mask, 'node_labels': self.node_labels}
+        eval_dataloader = {'mask': self.valid_mask, 'node_labels': self.node_labels}
+        test_dataloader = {'mask': self.test_mask, 'node_labels': self.node_labels}
         return train_dataloader, eval_dataloader, test_dataloader
 
     def get_data_feature(self):

@@ -55,7 +55,7 @@
 
     "g2t_sample_num": 2000,
     "g2t_epoch": 1000,
-    "label_epoch": 2000,
+    "label_epoch": 5,
 
     "baseline_gat_layer": 1
 }

@@ -26,8 +26,7 @@ class HRNR(AbstractModel, nn.Module):
 
         self.struct_assign = self.preprocess.struct_assign
         self.fnc_assign = self.preprocess.fnc_assign
-        adj = self.preprocess.adj_matrix
-        self.adj = get_sparse_adj(adj, self.device)
+        self.adj = get_sparse_adj(self.preprocess.adj_matrix.toarray(), self.device)
 
         edge = self.adj.indices()
         edge_e = torch.ones(edge.shape[1], dtype=torch.float).to(self.device)
@@ -45,55 +44,60 @@ class HRNR(AbstractModel, nn.Module):
 
         # start training
         self.train_embedding()
+        self.vectors = {}
+
+        data_feature = self.dataset.get_data_feature()
+        embeddings = self.forward(data_feature).detach()
+        for i, emb in enumerate(embeddings):
+            self.vectors[i] = emb
 
     def train_embedding(self):
         self.logger.info("Starting training...")
         hparams = dict_to_object(self.config.config)
         ce_criterion = torch.nn.CrossEntropyLoss()
         max_f1 = 0
-        max_auc = 0
         count = 0
         model_optimizer = torch.optim.Adam(self.parameters(), lr=hparams.lp_learning_rate)
         train_dataloader, eval_dataloader, test_dataloader = self.dataset.get_data()
-        eval_dataloader_iter = iter(eval_dataloader)
+        data_feature = self.dataset.get_data_feature()
+
+        eval_mask = eval_dataloader['mask']
+        eval_iter = 0
+
         for i in range(hparams.label_epoch):
             self.logger.info("epoch " + str(i) + ", processed " + str(count))
             mask = train_dataloader['mask']
-            for step in range(0, len(train_dataloader['mask'])):
+            for step in range(0, len(train_dataloader['mask']) - 128, 128):
                 model_optimizer.zero_grad()
-                train_set = mask[step].clone().detach()
-                train_label = train_dataloader['node_labels'][train_set].clone().detach()
-                pred = self.predict(train_dataloader)
+                train_set = mask[step: step + 128]
+                train_label = torch.LongTensor(data_feature['node_labels'][train_set]).to(self.device)
+                pred = self.predict(data_feature, train_set)
                 loss = ce_criterion(pred, train_label)
+                loss = loss.requires_grad_()
                 loss.backward(retain_graph=True)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), hparams.lp_clip)
+                torch.nn.utils.clip_grad_norm_(self.parameters(), hparams.lp_clip)
                 model_optimizer.step()
                 if count % 20 == 0:
-                    eval_data = get_next(eval_dataloader_iter)
-                    if eval_data is None:
-                        eval_dataloader_iter = iter(eval_dataloader)
-                        eval_data = get_next(eval_dataloader_iter)
-                    test_set, test_label = eval_data
-                    precision, recall, f1, auc = self.test_label_pred(self.model, test_set, test_label, self.device)
-                    if auc > max_auc:
-                        max_auc = auc
+                    eval_data = []
+                    for j in range(0, 128):
+                        eval_data.append(eval_mask[(eval_iter + j) % len(eval_mask)])
+                    eval_iter += 128
+
+                    precision, recall, f1 = self.test_label_pred(data_feature, eval_data, self.device)
                     if f1 > max_f1:
                         max_f1 = f1
-                    self.logger.info("max_auc: " + str(max_auc))
                     self.logger.info("max_f1: " + str(max_f1))
                     self.logger.info("step " + str(count))
                     self.logger.info(loss.item())
                 count += 1
 
-    def test_label_pred(self, model, test_set, test_label, device):
+    def test_label_pred(self, data_feature, mask, device):
+        # TODO 这里的 prf 都是 0，不知道是什么情况
         right = 0
         sum_num = 0
-        test_set = test_set.clone().detach()
-        pred = model(test_set)
-        pred_prob = F.softmax(pred, -1)
-        pred_scores = pred_prob[:, 1]
-        auc = roc_auc_score(np.array(test_label), np.array(pred_scores.tolist()))
-        self.logger.info("auc: " + str(auc))
+        pred = self.predict(data_feature, mask).detach()
+
+        test_label = torch.LongTensor(data_feature['node_labels'][mask]).to(self.device)
 
         pred_loc = torch.argmax(pred, 1).tolist()
         right_pos = 0
@@ -123,28 +127,21 @@ class HRNR(AbstractModel, nn.Module):
         precision = float(right_pos) / precision_sum
         if recall == 0 or precision == 0:
             self.logger.info("p/r/f:0/0/0")
-            return 0.0, 0.0, 0.0, 0.0
+            return 0.0, 0.0, 0.0
         f1 = 2 * recall * precision / (precision + recall)
         self.logger.info("label prediction @acc @p/r/f: " + str(float(right) / sum_num) + " " + str(precision) +
                           " " + str(recall) + " " + str(f1))
-        return precision, recall, f1, auc
+        return precision, recall, f1
 
-    def predict(self, dataloader):
-        mask = dataloader['mask']
-        node_feature = dataloader['node_feature'][mask]
-        type_feature = dataloader['type_feature'][mask]
-        length_feature = dataloader['length_feature'][mask]
-        lane_feature = dataloader['lane_feature'][mask]
+    def forward(self, data_feature):
+        node_feature = torch.LongTensor(data_feature['id_features']).to(self.device)
+        type_feature = torch.LongTensor(data_feature['node_labels']).to(self.device)
+        length_feature = torch.LongTensor(data_feature['length_features']).to(self.device)
+        lane_feature = torch.LongTensor(data_feature['lane_features']).to(self.device)
         return self.graph_enc(node_feature, type_feature, length_feature, lane_feature, self.adj)
 
-
-def get_next(it):
-    res = None
-    try:
-        res = next(it)
-    except StopIteration:
-        pass
-    return res
+    def predict(self, data_feature, mask):
+        return self.forward(data_feature)[mask]
 
 
 class HRNRPreprocess(object):
@@ -155,6 +152,7 @@ class HRNRPreprocess(object):
         self.device = config.get("device", torch.device("cpu"))
         self._transfer_files()
         self._calc_transfer_matrix()
+        self.logger.info("transfer matrix calculated.")
 
     def _transfer_files(self):
         """
@@ -166,13 +164,12 @@ class HRNRPreprocess(object):
         .rel [rel_id, type, origin_id, destination_id]
         """
         # node_features [[lane, type, length, id]]
-        train_data, _, _ = self.dataset.get_data()
         data_feature = self.dataset.get_data_feature()
 
-        self.lane_feature = torch.LongTensor(train_data['lane_features'])
-        self.type_feature = torch.LongTensor(train_data['node_labels'])
-        self.length_feature = torch.LongTensor(train_data['length_features'])
-        self.node_feature = torch.LongTensor(train_data['id_features'])
+        self.lane_feature = torch.LongTensor(data_feature['lane_features'])
+        self.type_feature = torch.LongTensor(data_feature['node_labels'])
+        self.length_feature = torch.LongTensor(data_feature['length_features'])
+        self.node_feature = torch.LongTensor(data_feature['id_features'])
         self.num_nodes = len(self.node_feature)
         self.adj_matrix = data_feature['adj_mx']
 

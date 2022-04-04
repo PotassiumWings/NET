@@ -26,5 +26,5 @@ class deepWalk(AbstractModel):
 
         word2vec = Word2Vec(**kwargs)
         self.vectors = {}
-        for word in g.nodes():
+        for word in self.g.nodes():
             self.vectors[word] = word2vec.wv[word]

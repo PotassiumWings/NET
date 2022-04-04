@@ -34,6 +34,8 @@ class data(object):
         self.feature_dim = 0
         self._load_geo()
         self._load_rel()
+        self._load_data_feature()
+        self._split_train_val_test()
 
     def _load_geo(self):
         """
@@ -54,7 +56,8 @@ class data(object):
         生成N*N的矩阵，默认.rel存在的边表示为1，不存在的边表示为0
 
         Returns:
-            np.ndarray: self.adj_mx, N*N的邻接矩阵
+            scipy.sparse.coo.coo_matrix: self.adj_mx, N*N的稀疏矩阵
+            nx.DiGraph: self.G, networkx 形式的图
         """
         map_info = pd.read_csv(self.data_path + self.rel_file + '.rel')
         # 使用稀疏矩阵构建邻接矩阵
@@ -80,13 +83,15 @@ class data(object):
         self.logger.info('Total link between geo = {}'.format(cnt))
         self.logger.info('Adj_mx is saved at {}'.format(save_path))
 
-    def _split_train_val_test(self):
+    def _load_data_feature(self):
         """
         获取路网原子文件中的节点属性信息，并返回
         Returns:
             node_features: N \times F 特征矩阵
             node_labels: N 的标签信息，路段分类
-            train_mask, valid_mask, test_mask: 下标的 list，分别表示选中训练、验证、测试的节点下标
+            lane_features: N 的车道特征
+            length_features: N 的道长特征
+            id_features: N 的下标
         """
         # node_features = self.road_info[['highway', 'length', 'lanes', 'tunnel', 'bridge',
         #                                 'maxspeed', 'width', 'service', 'junction', 'key']].values
@@ -107,22 +112,28 @@ class data(object):
             node_features = node_features.drop(k, 1)
             node_features.insert(v, k, dnew)
 
-        lane_features = torch.LongTensor(node_features["lanes"])
-        length_features = torch.LongTensor(node_features["length"])
-        id_features = torch.LongTensor(self.road_info["geo_id"])
+        self.lane_features = torch.LongTensor(node_features["lanes"])
+        self.length_features = torch.LongTensor(node_features["length"])
+        self.id_features = torch.LongTensor(self.road_info["geo_id"])
 
         # 对部分列进行独热编码
         onehot_list = ['lanes', 'highway']
         for col in onehot_list:
             if col == "highway":
-                node_labels = torch.LongTensor(node_features[col])
+                self.node_labels = torch.LongTensor(node_features[col])
             dum_col = pd.get_dummies(node_features[col], col)
             node_features = node_features.drop(col, axis=1)
             node_features = pd.concat([node_features, dum_col], axis=1)
 
-        node_features = node_features.values
-        np.save(self.cache_file_folder + '{}_node_features.npy'.format(self.dataset), node_features)
+        self.node_features = node_features.values
+        np.save(self.cache_file_folder + '{}_node_features.npy'.format(self.dataset), self.node_features)
 
+    def _split_train_val_test(self):
+        """
+        分离训练、验证、测试数据集
+        :return:
+            train_mask, valid_mask, test_mask: 下标的 list，分别表示选中训练、验证、测试的节点下标
+        """
         # mask 索引
         sindex = list(range(self.num_nodes))
         np.random.seed(1234)
@@ -133,49 +144,13 @@ class data(object):
         num_train = round(self.num_nodes * self.train_rate)
         num_val = self.num_nodes - num_test - num_train
 
-        train_mask = np.array(sorted(sindex[0: num_train]))
-        valid_mask = np.array(sorted(sindex[num_train: num_train + num_val]))
-        test_mask = np.array(sorted(sindex[-num_test:]))
+        self.train_mask = np.array(sorted(sindex[0: num_train]))
+        self.valid_mask = np.array(sorted(sindex[num_train: num_train + num_val]))
+        self.test_mask = np.array(sorted(sindex[-num_test:]))
 
-        if self.cache_dataset:
-            ensure_dir(self.cache_file_folder)
-            np.savez_compressed(
-                self.cache_file_name,
-                node_features=node_features,
-                node_labels=node_labels,
-                id_features=id_features,
-                lane_features=lane_features,
-                length_features=length_features,
-                train_mask=train_mask,
-                valid_mask=valid_mask,
-                test_mask=test_mask
-            )
-            self.logger.info('Saved at ' + self.cache_file_name)
-        self.logger.info("len train feature\t" + str(len(train_mask)))
-        self.logger.info("len eval feature\t" + str(len(valid_mask)))
-        self.logger.info("len test feature\t" + str(len(test_mask)))
-        return node_features, node_labels, id_features, lane_features, length_features, \
-               train_mask, valid_mask, test_mask
-
-    def _load_cache_train_val_test(self):
-        """
-        加载之前缓存好的训练集、测试集、验证集
-        """
-        self.logger.info('Loading ' + self.cache_file_name)
-        cat_data = np.load(self.cache_file_name, allow_pickle=True)
-        node_features = cat_data['node_features']
-        node_labels = cat_data['node_labels']
-        id_features = cat_data['id_features']
-        lane_features = cat_data['lane_features']
-        length_features = cat_data['length_features']
-        train_mask = cat_data['train_mask']
-        valid_mask = cat_data['valid_mask']
-        test_mask = cat_data['test_mask']
-        self.logger.info("len train feature\t" + str(len(train_mask)))
-        self.logger.info("len eval feature\t" + str(len(valid_mask)))
-        self.logger.info("len test feature\t" + str(len(test_mask)))
-        return node_features, node_labels, id_features, lane_features, length_features, \
-               train_mask, valid_mask, test_mask
+        self.logger.info("len train feature\t" + str(len(self.train_mask)))
+        self.logger.info("len eval feature\t" + str(len(self.valid_mask)))
+        self.logger.info("len test feature\t" + str(len(self.test_mask)))
 
     def get_data(self):
         """
@@ -184,24 +159,11 @@ class data(object):
         Returns:
             batch_data: dict
         """
-        # 加载数据集
-        if self.cache_dataset and os.path.exists(self.cache_file_name):
-            node_features, node_labels, id_features, lane_features, length_features, \
-                train_mask, valid_mask, test_mask = self._load_cache_train_val_test()
-        else:
-            node_features, node_labels, id_features, lane_features, length_features, \
-                train_mask, valid_mask, test_mask = self._split_train_val_test()
         # 数据归一化
-        self.feature_dim = node_features.shape[-1]
-        train_dataloader = {'node_features': node_features, 'node_labels': node_labels,
-                            'id_features': id_features, 'lane_features': lane_features,
-                            'length_features': length_features, 'mask': train_mask}
-        eval_dataloader = {'node_features': node_features, 'node_labels': node_labels,
-                            'id_features': id_features, 'lane_features': lane_features,
-                            'length_features': length_features, 'mask': valid_mask}
-        test_dataloader = {'node_features': node_features, 'node_labels': node_labels,
-                            'id_features': id_features, 'lane_features': lane_features,
-                            'length_features': length_features, 'mask': test_mask}
+        self.feature_dim = self.node_features.shape[-1]
+        train_dataloader = {'mask': self.train_mask}
+        eval_dataloader = {'mask': self.valid_mask}
+        test_dataloader = {'mask': self.test_mask}
         return train_dataloader, eval_dataloader, test_dataloader
 
     def get_data_feature(self):
@@ -211,4 +173,8 @@ class data(object):
         Returns:
             dict: 包含数据集的相关特征的字典
         """
-        return {"adj_mx": self.adj_mx, "num_nodes": self.num_nodes, "feature_dim": self.feature_dim}
+        return {"adj_mx": self.adj_mx, "num_nodes": self.num_nodes,
+                'node_features': self.node_features, 'node_labels': self.node_labels,
+                'id_features': self.id_features, 'lane_features': self.lane_features,
+                'length_features': self.length_features,
+                "feature_dim": self.feature_dim}

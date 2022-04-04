@@ -67,11 +67,6 @@ def run_model(config):
     dataset = data(config, logger)
     logger.info("Dataset read.")
 
-    logger.info("Getting data...")
-    train_data, valid_data, test_data = dataset.get_data()
-    data_feature = dataset.get_data_feature()
-    logger.info("Finished getting data.")
-
     cached_embedding = config["cached_embedding"]
     if cached_embedding is not None:
         vectors = load_embeddings(cached_embedding)
@@ -85,6 +80,8 @@ def run_model(config):
         logger.info("Embeddings saved.")
         vectors = m.vectors
 
+    train_data, valid_data, test_data = dataset.get_data()
+    data_feature = dataset.get_data_feature()
     downstream = get_downstream(config, data_feature, vectors, logger)
 
     logger.info("Start training downstream task...")

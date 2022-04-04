@@ -25,7 +25,8 @@ def parse_args():
     parser.add_argument('--method', required=True, help='The learning method',
                         choices=[
                             'node2vec',
-                            'deepWalk'
+                            'deepWalk',
+                            'HRNR'
                         ])
     parser.add_argument('--downstream', required=True, help='The downstream task',
                         choices=[
@@ -66,23 +67,23 @@ def run_model(config):
     dataset = data(config, logger)
     logger.info("Dataset read.")
 
+    logger.info("Getting data...")
+    train_data, valid_data, test_data = dataset.get_data()
+    data_feature = dataset.get_data_feature()
+    logger.info("Finished getting data.")
+
     cached_embedding = config["cached_embedding"]
     if cached_embedding is not None:
         vectors = load_embeddings(cached_embedding)
     else:
         logger.info("Start building method...")
-        m = get_model(config, dataset.G, logger)
+        m = get_model(config, dataset, logger)
         logger.info("Model built.")
 
         logger.info("Saving embeddings...")
         m.save_embeddings()
         logger.info("Embeddings saved.")
         vectors = m.vectors
-
-    logger.info("Getting data...")
-    train_data, valid_data, test_data = dataset.get_data()
-    data_feature = dataset.get_data_feature()
-    logger.info("Finished getting data.")
 
     downstream = get_downstream(config, data_feature, vectors, logger)
 

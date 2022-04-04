@@ -4,13 +4,11 @@ from gensim.models import Word2Vec
 
 
 class deepWalk(AbstractModel):
-    def __init__(self, config, g, logger, kwargs=None):
-        super().__init__(config)
+    def __init__(self, config, dataset, logger, kwargs=None):
+        super().__init__(config, dataset, logger, kwargs)
         if kwargs is None:
             kwargs = {}
-        self.config = config
-        self.logger = logger
-        self.walker = walker.BasicWalker(g, logger=self.logger)
+        self.walker = walker.BasicWalker(self.g, logger=self.logger)
 
         self.output_dim = config.get("output_dim", 128)
 

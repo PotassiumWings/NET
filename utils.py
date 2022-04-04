@@ -13,9 +13,9 @@ def get_downstream(config, data_feature, vectors, logger):
         (config, data_feature, vectors, logger)
 
 
-def get_model(config, g, logger):
+def get_model(config, dataset, logger):
     return getattr(importlib.import_module('model'), config["method"]) \
-        (config, g, logger)
+        (config, dataset, logger)
 
 
 def load_embeddings(filename):

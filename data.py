@@ -107,6 +107,10 @@ class data(object):
             node_features = node_features.drop(k, 1)
             node_features.insert(v, k, dnew)
 
+        lane_features = torch.LongTensor(node_features["lanes"])
+        length_features = torch.LongTensor(node_features["length"])
+        id_features = torch.LongTensor(self.road_info["geo_id"])
+
         # 对部分列进行独热编码
         onehot_list = ['lanes', 'highway']
         for col in onehot_list:
@@ -139,6 +143,9 @@ class data(object):
                 self.cache_file_name,
                 node_features=node_features,
                 node_labels=node_labels,
+                id_features=id_features,
+                lane_features=lane_features,
+                length_features=length_features,
                 train_mask=train_mask,
                 valid_mask=valid_mask,
                 test_mask=test_mask
@@ -147,7 +154,8 @@ class data(object):
         self.logger.info("len train feature\t" + str(len(train_mask)))
         self.logger.info("len eval feature\t" + str(len(valid_mask)))
         self.logger.info("len test feature\t" + str(len(test_mask)))
-        return node_features, node_labels, train_mask, valid_mask, test_mask
+        return node_features, node_labels, id_features, lane_features, length_features, \
+               train_mask, valid_mask, test_mask
 
     def _load_cache_train_val_test(self):
         """
@@ -157,13 +165,17 @@ class data(object):
         cat_data = np.load(self.cache_file_name, allow_pickle=True)
         node_features = cat_data['node_features']
         node_labels = cat_data['node_labels']
+        id_features = cat_data['id_features']
+        lane_features = cat_data['lane_features']
+        length_features = cat_data['length_features']
         train_mask = cat_data['train_mask']
         valid_mask = cat_data['valid_mask']
         test_mask = cat_data['test_mask']
         self.logger.info("len train feature\t" + str(len(train_mask)))
         self.logger.info("len eval feature\t" + str(len(valid_mask)))
         self.logger.info("len test feature\t" + str(len(test_mask)))
-        return node_features, node_labels, train_mask, valid_mask, test_mask
+        return node_features, node_labels, id_features, lane_features, length_features, \
+               train_mask, valid_mask, test_mask
 
     def get_data(self):
         """
@@ -174,14 +186,22 @@ class data(object):
         """
         # 加载数据集
         if self.cache_dataset and os.path.exists(self.cache_file_name):
-            node_features, node_labels, train_mask, valid_mask, test_mask = self._load_cache_train_val_test()
+            node_features, node_labels, id_features, lane_features, length_features, \
+                train_mask, valid_mask, test_mask = self._load_cache_train_val_test()
         else:
-            node_features, node_labels, train_mask, valid_mask, test_mask = self._split_train_val_test()
+            node_features, node_labels, id_features, lane_features, length_features, \
+                train_mask, valid_mask, test_mask = self._split_train_val_test()
         # 数据归一化
         self.feature_dim = node_features.shape[-1]
-        train_dataloader = {'node_features': node_features, 'node_labels': node_labels, 'mask': train_mask}
-        eval_dataloader = {'node_features': node_features, 'node_labels': node_labels, 'mask': valid_mask}
-        test_dataloader = {'node_features': node_features, 'node_labels': node_labels, 'mask': test_mask}
+        train_dataloader = {'node_features': node_features, 'node_labels': node_labels,
+                            'id_features': id_features, 'lane_features': lane_features,
+                            'length_features': length_features, 'mask': train_mask}
+        eval_dataloader = {'node_features': node_features, 'node_labels': node_labels,
+                            'id_features': id_features, 'lane_features': lane_features,
+                            'length_features': length_features, 'mask': valid_mask}
+        test_dataloader = {'node_features': node_features, 'node_labels': node_labels,
+                            'id_features': id_features, 'lane_features': lane_features,
+                            'length_features': length_features, 'mask': test_mask}
         return train_dataloader, eval_dataloader, test_dataloader
 
     def get_data_feature(self):

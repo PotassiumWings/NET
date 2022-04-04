@@ -2,8 +2,11 @@ from utils import ensure_dir
 
 
 class AbstractModel(object):
-    def __init__(self, config):
+    def __init__(self, config, dataset, logger, kwargs=None):
         self.config = config
+        self.g = dataset.G
+        self.dataset = dataset
+        self.logger = logger
         self.vectors = None
         self.output_dim = 0
 

@@ -4,13 +4,11 @@ from model.AbstractModel import AbstractModel
 
 
 class node2vec(AbstractModel):
-    def __init__(self, config, g, logger, kwargs=None):
-        super().__init__(config)
+    def __init__(self, config, dataset, logger, kwargs=None):
+        super().__init__(config, dataset, logger, kwargs)
         if kwargs is None:
             kwargs = {}
-        self.config = config
-        self.logger = logger
-        self.walker = walker.Walker(g, p=config.get("p", 1.0), q=config.get("q", 1.0), logger=self.logger)
+        self.walker = walker.Walker(self.g, p=config.get("p", 1.0), q=config.get("q", 1.0), logger=self.logger)
         self.walker.preprocess_transition_probs()
 
         self.output_dim = config.get("output_dim", 128)
@@ -27,5 +25,5 @@ class node2vec(AbstractModel):
 
         word2vec = Word2Vec(**kwargs)
         self.vectors = {}
-        for word in g.nodes():
+        for word in self.g.nodes():
             self.vectors[word] = word2vec.wv[word]
